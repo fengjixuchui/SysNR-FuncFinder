@@ -33,9 +33,9 @@ class myplugin_t(idaapi.plugin_t):
     def term(self):
         print("SysNR-FuncFinder works fine! :)@WPeace\n")
     def patcher(self):
-        elf_magic = idc.Dword(idc.FirstSeg())
+        elf_magic = idc.get_wide_dword(idc.get_first_seg())
         if elf_magic == 0x464c457f or elf_magic == 0x7f454c46:
-            e_machine = idc.Word(idc.FirstSeg() + 0x12)
+            e_machine = idc.get_wide_word(idc.get_first_seg() + 0x12)
             # AMD x86-64 architecture
             if e_machine == 62:
                 LinuxFuncFinder_x64.main()
@@ -102,7 +102,7 @@ class About_Form(idaapi.Form):
         super(About_Form, self).__init__(
             r"""STARTITEM 0
 BUTTON YES* Open author's github
-ABOUT（v1.0）
+ABOUT（v1.1）
             {FormChangeCb}
             SysNR-FuncFinder Plugin for IDA.
             Written BY WPeace.

@@ -417,7 +417,7 @@ def ReName():
     for func in idautils.Functions():
         dism_addr = list(idautils.FuncItems(func));
         for line in dism_addr:
-            m = idc.GetMnem(line);
+            m = idc.print_insn_mnem(line);
             if m == 'int':
                 op = idc.GetDisasm(line - 5);
                 if len(re.findall(r'mov     eax,*', op)) == 0:
@@ -428,21 +428,21 @@ def ReName():
                 opString = ''.join(op);
                 opString = opString.replace(',', '').replace('h', '')
                 CallNumber = int(opString, 16);
-                address = idc.LocByName(idc.GetFunctionName(line));
+                address = idc.get_name_ea_simple(idc.get_func_name(line));
                 flag = 0;
                 for func in idautils.Functions():
-                    name = idc.GetFunctionName(func);
+                    name = idc.get_func_name(func);
                     if name == linux_func[CallNumber]:
                         flag = 1;
                 if flag == 0:
                     if linux_func[CallNumber] == "_WPe_socketcall":
-                        funcStartAddr = idc.GetFunctionAttr(line, idc.FUNCATTR_START)
+                        funcStartAddr = idc.get_func_attr(line, idc.FUNCATTR_START)
                         xrefs = list(idautils.XrefsTo(funcStartAddr))
                         for xrefAddr in xrefs:
-                            socketop = idc.GetOpnd(idc.PrevHead(xrefAddr.frm), 0)
+                            socketop = idc.print_operand(idc.prev_head(xrefAddr.frm), 0)
                             opString = socketop.replace('h', '')
                             socketNumber = int(opString, 16);
-                            xrefAddrFunc = idc.GetFunctionAttr(xrefAddr.frm, idc.FUNCATTR_START)
+                            xrefAddrFunc = idc.get_func_attr(xrefAddr.frm, idc.FUNCATTR_START)
                             print(socket_func[socketNumber]);
                             idc.set_name(xrefAddrFunc, socket_func[socketNumber], idc.SN_CHECK);
                     else:

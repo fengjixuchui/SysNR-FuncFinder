@@ -427,7 +427,7 @@ def ReName():
     for func in idautils.Functions():
         dism_addr = list(idautils.FuncItems(func));
         for line in dism_addr:
-            m = idc.GetMnem(line);
+            m = idc.print_insn_mnem(line);
             if m == 'syscall':
                 op = idc.GetDisasm(line - 4);
                 op = re.findall('(?<=0x).*$', op);
@@ -436,10 +436,10 @@ def ReName():
                     print("Error：请确认调用规则是否正确！")
                     return
                 CallNumber = int(opString, 16);
-                address = idc.LocByName(idc.GetFunctionName(line));
+                address = idc.get_name_ea_simple(idc.get_func_name(line));
                 flag = 0;
                 for func in idautils.Functions():
-                    name = idc.GetFunctionName(func);
+                    name = idc.get_func_name(func);
                     if name == mips_func[CallNumber]:
                         flag = 1;
                 if flag == 0:
