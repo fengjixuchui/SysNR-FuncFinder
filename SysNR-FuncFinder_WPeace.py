@@ -7,6 +7,7 @@ import LinuxFuncFinder_x64
 import LinuxFuncFinder_x86
 import LinuxFuncFinder_Mips32
 import LinuxFuncFinder_Arm32
+import eabiFuncFinder_Arm32
 
 
 class myplugin_t(idaapi.plugin_t):
@@ -34,22 +35,34 @@ class myplugin_t(idaapi.plugin_t):
         print("SysNR-FuncFinder works fine! :)@WPeace\n")
     def patcher(self):
         elf_magic = idc.get_wide_dword(idc.get_first_seg())
+        e_type = idc.get_wide_word(idc.get_first_seg() + 0x10)
         if elf_magic == 0x464c457f or elf_magic == 0x7f454c46:
-            e_machine = idc.get_wide_word(idc.get_first_seg() + 0x12)
-            # AMD x86-64 architecture
-            if e_machine == 62:
-                LinuxFuncFinder_x64.main()
-            # Intel 80386
-            elif e_machine == 3:
-                LinuxFuncFinder_x86.main()
-            # MIPS I Architecture
-            elif e_machine == 8:
-                LinuxFuncFinder_Mips32.main()
-            # Advanced RISC Machines ARM
-            elif e_machine == 40:
-                LinuxFuncFinder_Arm32.main()
+            if e_type == 2:
+                e_flags = idc.get_wide_dword(idc.get_first_seg() + 0x24)
+                e_machine = idc.get_wide_word(idc.get_first_seg() + 0x12)
+                # eabi_syscall
+                if e_flags == 0x4000002:
+                    # ARM32
+                    if e_machine == 40:
+                        eabiFuncFinder_Arm32.main()
+                # oabi_syscall
+                else:
+                    # AMD x86-64 architecture
+                    if e_machine == 62:
+                        LinuxFuncFinder_x64.main()
+                    # Intel 80386
+                    elif e_machine == 3:
+                        LinuxFuncFinder_x86.main()
+                    # MIPS I Architecture
+                    elif e_machine == 8:
+                        LinuxFuncFinder_Mips32.main()
+                    # Advanced RISC Machines ARM
+                    elif e_machine == 40:
+                        LinuxFuncFinder_Arm32.main()
+                    else:
+                        print("请确认插件版本是否支持当前文件架构。")
             else:
-                print("请确认插件版本是否支持当前文件架构。")
+                 print("当前插件仅支持EXEC可执行ELF文件。")
         else:
             print("当前插件仅支持ELF文件格式。")
     def about(self):
@@ -92,7 +105,7 @@ class Menu_Context(idaapi.action_handler_t):
         @classmethod
         def update(self, ctx):
             try:
-                return idaapi.AST_ENABLE_FOR_FORM if ctx.form_type == idaapi.BWN_DISASM else idaapi.AST_DISABLE_FOR_FORM
+                return idaapi.AST_ENABLE_FOR_WIDGET
             except Exception as e:
                 return idaapi.AST_ENABLE_ALWAYS
 
@@ -102,7 +115,7 @@ class About_Form(idaapi.Form):
         super(About_Form, self).__init__(
             r"""STARTITEM 0
 BUTTON YES* Open author's github
-ABOUT（v1.1）
+ABOUT（v1.3）
             {FormChangeCb}
             SysNR-FuncFinder Plugin for IDA.
             Written BY WPeace.
