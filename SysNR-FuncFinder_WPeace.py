@@ -10,7 +10,7 @@ import LinuxFuncFinder_Arm32
 import eabiFuncFinder_Arm32
 
 
-class myplugin_t(idaapi.plugin_t):
+class myplugin_sysnr(idaapi.plugin_t):
     flags = idaapi.PLUGIN_UNL
     comment = "SysNR-FuncFinder Plugin for IDA"
     help = "Find more information at https://github.com/wpeace-hch"
@@ -30,9 +30,10 @@ class myplugin_t(idaapi.plugin_t):
             print("Your IDA version needs to be greater than 7.4! :(@WPeace")
         return idaapi.PLUGIN_OK
     def run(self, arg):
+        print("SysNR-FuncFinder v1.4 start running...")
         self.patcher()
     def term(self):
-        print("SysNR-FuncFinder works fine! :)@WPeace\n")
+        print("SysNR-FuncFinder v1.4 works fine! :)@WPeace\n")
     def patcher(self):
         elf_magic = idc.get_wide_dword(idc.get_first_seg())
         e_type = idc.get_wide_word(idc.get_first_seg() + 0x10)
@@ -41,7 +42,7 @@ class myplugin_t(idaapi.plugin_t):
                 e_flags = idc.get_wide_dword(idc.get_first_seg() + 0x24)
                 e_machine = idc.get_wide_word(idc.get_first_seg() + 0x12)
                 # eabi_syscall
-                if e_flags == 0x4000002:
+                if e_flags > 0x4000000:
                     # ARM32
                     if e_machine == 40:
                         eabiFuncFinder_Arm32.main()
@@ -112,17 +113,16 @@ class Menu_Context(idaapi.action_handler_t):
 
 class About_Form(idaapi.Form):
     def __init__(self):
-        super(About_Form, self).__init__(
-            r"""STARTITEM 0
+        super(About_Form, self).__init__(r"""STARTITEM 0
 BUTTON YES* Open author's github
-ABOUT（v1.3）
-            {FormChangeCb}
-            SysNR-FuncFinder Plugin for IDA.
-            Written BY WPeace.
-            """, {
+ABOUT
+{FormChangeCb}
+Plugins for IDA.
+Written BY WPeace.
+      
+""", {
             'FormChangeCb': self.FormChangeCb(self.OnFormChange),
             })
-
         self.Compile()
 
     def OnFormChange(self, fid):
@@ -134,6 +134,7 @@ ABOUT（v1.3）
 
 class WPe_Patcher(Menu_Context):
         def activate(self, ctx):
+            print("\nSysNR-FuncFinder v1.4 start running...")
             self.plugin.patcher()
             return 1
 
@@ -145,4 +146,4 @@ class WPe_About(Menu_Context):
 
 
 def PLUGIN_ENTRY():
-    return myplugin_t()
+    return myplugin_sysnr()

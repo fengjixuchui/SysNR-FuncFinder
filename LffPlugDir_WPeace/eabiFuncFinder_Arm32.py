@@ -2,10 +2,11 @@
 import idc
 import idautils
 import re
+import idaapi
 
 SN_FORCE = 0x800
 
-linux_func = [];
+linux_func = []
 linux_func += ['_WPe_restart_syscall']
 linux_func += ['_WPe_exit']
 linux_func += ['_WPe_fork']
@@ -406,49 +407,72 @@ linux_func += ['_WPe_pkey_free']
 linux_func += ['_WPe_statx']
 
 def ReName():
-    sum = 0;
+    sum = 0
     for func in idautils.Functions():
-        dism_addr = list(idautils.FuncItems(func));
+        dism_addr = list(idautils.FuncItems(func))
         for line in dism_addr:
-            op = idc.print_insn_mnem(line);
+            op = idc.print_insn_mnem(line)
             if op == 'SVC':
                 lastline = idc.prev_head(line)
-                op_last = idc.print_insn_mnem(lastline);
+                op_last = idc.print_insn_mnem(lastline)
                 if op_last == 'MOV' and idc.get_operand_value(lastline, 0) == 7:
                     callnumber = idc.get_operand_value(lastline, 1)
-                    address = idc.get_name_ea_simple(idc.get_func_name(line));
+                    address = idc.get_name_ea_simple(idc.get_func_name(line))
                     funcName = idc.get_func_name(address)
                     if funcName != "start" and funcName != "_WPe_fork":
                         if "clone" in funcName and callnumber == 0xF0:
-                            idc.set_name(address, "_WPe_fork", SN_FORCE);
+                            idc.set_name(address, "_WPe_fork", SN_FORCE)
                             print("_WPe_fork")
                         else:
-                            idc.set_name(address, linux_func[callnumber], SN_FORCE);
+                            idc.set_name(address, linux_func[callnumber], SN_FORCE)
                             print(linux_func[callnumber])
                         sum += 1
                 elif op_last == 'LDR' and idc.get_operand_value(lastline, 0) == 7:
-                    op = idc.GetDisasm(lastline);
-                    op = re.findall('=.*$', op);
+                    op = idc.GetDisasm(lastline)
+                    op = re.findall('=.*$', op)
                     if op:
                         try:
-                            opString = ''.join(op[0].replace('=',''));
-                            callnumber = int(opString, 16);
-                            address = idc.get_name_ea_simple(idc.get_func_name(line));
+                            opString = ''.join(op[0].replace('=',''))
+                            callnumber = int(opString, 16)
+                            address = idc.get_name_ea_simple(idc.get_func_name(line))
                             funcName = idc.get_func_name(address)
                             if funcName != "start" and funcName != "_WPe_fork":
                                 if "clone" in funcName and callnumber == 0xF0:
-                                    idc.set_name(address, "_WPe_fork", SN_FORCE);
+                                    idc.set_name(address, "_WPe_fork", SN_FORCE)
                                     print("_WPe_fork")
                                 else:
-                                    idc.set_name(address, linux_func[callnumber], SN_FORCE);
+                                    idc.set_name(address, linux_func[callnumber], SN_FORCE)
                                     print(linux_func[callnumber])
                                 sum += 1
                         except Exception as e:
                             pass
-    print("eabiFuncFinder_Arm32 finished！总共重命名%d个函数" %sum);
+    print("eabiFuncFinder_Arm32 finished！总共重命名%d个函数" %sum)
+
+def GetMainFunc(func):
+    end = idc.prev_head(func.end_ea)
+    initMainAddr = idc.get_name_ea_simple(idc.print_operand(end, 0))
+    mainOP = idc.print_operand(idc.prev_head(idc.prev_head(end)), 0)
+    mainAddrStr = idc.print_operand(idc.prev_head(idc.prev_head(end)), 1)
+    if mainOP == "R0":
+        mainAddr = idc.get_name_ea_simple(mainAddrStr.replace('=', ''))
+        print("main address = 0x%x" %mainAddr)
+        idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
+        idc.set_name(mainAddr, "main", SN_FORCE)
+
+def RenameStartFunc():
+    startAddr = idc.get_name_ea_simple("start")
+    func = idaapi.get_func(startAddr)
+    if func != None:
+        GetMainFunc(func)
+    else:
+        startAddr = idc.get_name_ea_simple("_start")
+        func = idaapi.get_func(startAddr)
+        if func != None:
+            GetMainFunc(func)
 
 def main():
-    ReName();
+    ReName()
+    RenameStartFunc()
 
 if __name__ == "__main__":
-    main();
+    main()
