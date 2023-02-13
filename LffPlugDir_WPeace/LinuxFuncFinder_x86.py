@@ -3,8 +3,11 @@
 import idc
 import idautils
 import  re
+import idaapi
 
-linux_func = [];
+SN_FORCE = 0x800
+
+linux_func = []
 linux_func += ['_WPe_restart_syscall']
 linux_func += ['_WPe_exit']
 linux_func += ['_WPe_fork']
@@ -390,7 +393,7 @@ linux_func += ['_WPe_pkey_alloc']
 linux_func += ['_WPe_pkey_free']
 linux_func += ['_WPe_statx']
 linux_func += ['_WPe_arch_prctl']
-socket_func = [''];
+socket_func = ['']
 socket_func += ['socket']
 socket_func += ['bind']
 socket_func += ['connect']
@@ -413,27 +416,27 @@ socket_func += ['recvmmsg']
 socket_func += ['sendmmsg']
 
 def ReName():
-    sum = 0;
+    sum = 0
     for func in idautils.Functions():
-        dism_addr = list(idautils.FuncItems(func));
+        dism_addr = list(idautils.FuncItems(func))
         for line in dism_addr:
-            m = idc.print_insn_mnem(line);
+            m = idc.print_insn_mnem(line)
             if m == 'int':
-                op = idc.GetDisasm(line - 5);
+                op = idc.GetDisasm(line - 5)
                 if len(re.findall(r'mov     eax,*', op)) == 0:
                     continue
-                op = re.findall(r',.*', op);
+                op = re.findall(r',.*', op)
                 if ';' in op[0]:
                     op = op[0].split(';')[0]
-                opString = ''.join(op);
+                opString = ''.join(op)
                 opString = opString.replace(',', '').replace('h', '')
-                CallNumber = int(opString, 16);
-                address = idc.get_name_ea_simple(idc.get_func_name(line));
-                flag = 0;
+                CallNumber = int(opString, 16)
+                address = idc.get_name_ea_simple(idc.get_func_name(line))
+                flag = 0
                 for func in idautils.Functions():
-                    name = idc.get_func_name(func);
+                    name = idc.get_func_name(func)
                     if name == linux_func[CallNumber]:
-                        flag = 1;
+                        flag = 1
                 if flag == 0:
                     if linux_func[CallNumber] == "_WPe_socketcall":
                         funcStartAddr = idc.get_func_attr(line, idc.FUNCATTR_START)
@@ -441,19 +444,40 @@ def ReName():
                         for xrefAddr in xrefs:
                             socketop = idc.print_operand(idc.prev_head(xrefAddr.frm), 0)
                             opString = socketop.replace('h', '')
-                            socketNumber = int(opString, 16);
+                            socketNumber = int(opString, 16)
                             xrefAddrFunc = idc.get_func_attr(xrefAddr.frm, idc.FUNCATTR_START)
-                            print(socket_func[socketNumber]);
-                            idc.set_name(xrefAddrFunc, socket_func[socketNumber], idc.SN_CHECK);
+                            print(socket_func[socketNumber])
+                            idc.set_name(xrefAddrFunc, socket_func[socketNumber], idc.SN_CHECK)
                     else:
-                        print(linux_func[CallNumber]);
-                        idc.set_name(address, linux_func[CallNumber], idc.SN_CHECK);
-                    sum += 1;
-        continue;
-    print("LinuxFuncFinder_x86 finished！总共重命名%d个函数" %sum);
+                        print(linux_func[CallNumber])
+                        idc.set_name(address, linux_func[CallNumber], idc.SN_CHECK)
+                    sum += 1
+        continue
+    print("LinuxFuncFinder_x86 finished！总共重命名%d个函数" %sum)
+
+def GetMainFunc(func):
+    end = idc.prev_head(func.end_ea)
+    initMainAddr = idc.get_name_ea_simple(idc.print_operand(end, 0))
+    mainOP = idc.print_operand(idc.prev_head(end), 0)
+    mainAddr = int(mainOP.split("sub_")[1], 16)
+    print("main address = 0x%x" %mainAddr)
+    idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
+    idc.set_name(mainAddr, "main", SN_FORCE)
+
+def RenameStartFunc():
+    startAddr = idc.get_name_ea_simple("start")
+    func = idaapi.get_func(startAddr)
+    if func != None:
+        GetMainFunc(func)
+    else:
+        startAddr = idc.get_name_ea_simple("_start")
+        func = idaapi.get_func(startAddr)
+        if func != None:
+            GetMainFunc(func)
 
 def main():
-    ReName();
+    ReName()
+    RenameStartFunc()
 
 if __name__ == "__main__":
-    main();
+    main()

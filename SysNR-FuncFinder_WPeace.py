@@ -30,10 +30,10 @@ class myplugin_sysnr(idaapi.plugin_t):
             print("Your IDA version needs to be greater than 7.4! :(@WPeace")
         return idaapi.PLUGIN_OK
     def run(self, arg):
-        print("SysNR-FuncFinder v1.4 start running...")
+        print("SysNR-FuncFinder v1.5 start running...")
         self.patcher()
     def term(self):
-        print("SysNR-FuncFinder v1.4 works fine! :)@WPeace\n")
+        print("SysNR-FuncFinder v1.5 works fine! :)@WPeace\n")
     def patcher(self):
         elf_magic = idc.get_wide_dword(idc.get_first_seg())
         e_type = idc.get_wide_word(idc.get_first_seg() + 0x10)
@@ -134,7 +134,7 @@ Written BY WPeace.
 
 class WPe_Patcher(Menu_Context):
         def activate(self, ctx):
-            print("\nSysNR-FuncFinder v1.4 start running...")
+            print("\nSysNR-FuncFinder v1.5 start running...")
             self.plugin.patcher()
             return 1
 

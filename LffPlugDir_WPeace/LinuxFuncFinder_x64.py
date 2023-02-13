@@ -3,8 +3,11 @@
 import idc
 import idautils
 import re
+import idaapi
 
-linux_func = [];
+SN_FORCE = 0x800
+
+linux_func = []
 linux_func += ['_WPe_read']
 linux_func += ['_WPe_write']
 linux_func += ['_WPe_open']
@@ -340,36 +343,57 @@ linux_func += ['_WPe_pkey_free']
 linux_func += ['_WPe_statx']
 
 def ReName():
-    sum = 0;
+    sum = 0
     for func in idautils.Functions():
-        dism_addr = list(idautils.FuncItems(func));
+        dism_addr = list(idautils.FuncItems(func))
         for line in dism_addr:
-            m = idc.print_insn_mnem(line);
+            m = idc.print_insn_mnem(line)
             if m == 'syscall':
-                op = idc.GetDisasm(line - 4);
+                op = idc.GetDisasm(line - 4)
                 if len(re.findall(r'mov     eax,*', op)) == 0:
                     continue
-                op = re.findall(r',.*', op);
+                op = re.findall(r',.*', op)
                 if ';' in op[0]:
                     op = op[0].split(';')[0]
-                opString = ''.join(op);
+                opString = ''.join(op)
                 opString = opString.replace(',', '').replace('h', '')
-                CallNumber = int(opString, 16);
-                address = idc.get_name_ea_simple(idc.get_func_name(line));
-                flag = 0;
+                CallNumber = int(opString, 16)
+                address = idc.get_name_ea_simple(idc.get_func_name(line))
+                flag = 0
                 for func in idautils.Functions():
-                    name = idc.get_func_name(func);
+                    name = idc.get_func_name(func)
                     if name == linux_func[CallNumber]:
-                        flag = 1;
+                        flag = 1
                 if flag == 0:
-                    print(linux_func[CallNumber]);
-                    idc.set_name(address, linux_func[CallNumber], idc.SN_CHECK);
-                    sum += 1;
-        continue;
-    print("LinuxFuncFinder_x64 finished！总共重命名%d个函数" %sum);
+                    print(linux_func[CallNumber])
+                    idc.set_name(address, linux_func[CallNumber], idc.SN_CHECK)
+                    sum += 1
+        continue
+    print("LinuxFuncFinder_x64 finished！总共重命名%d个函数" %sum)
+
+def GetMainFunc(func):
+    end = idc.prev_head(func.end_ea)
+    initMainAddr = idc.get_name_ea_simple(idc.print_operand(end, 0))
+    mainOP = idc.print_operand(idc.prev_head(idc.prev_head(idc.prev_head(end))), 1)
+    mainAddr = int(mainOP.split("sub_")[1], 16)
+    print("main address = 0x%x" %mainAddr)
+    idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
+    idc.set_name(mainAddr, "main", SN_FORCE)
+
+def RenameStartFunc():
+    startAddr = idc.get_name_ea_simple("start")
+    func = idaapi.get_func(startAddr)
+    if func != None:
+        GetMainFunc(func)
+    else:
+        startAddr = idc.get_name_ea_simple("_start")
+        func = idaapi.get_func(startAddr)
+        if func != None:
+            GetMainFunc(func)
 
 def main():
-    ReName();
+    ReName()
+    RenameStartFunc()
 
 if __name__ == "__main__":
-    main();
+    main()
