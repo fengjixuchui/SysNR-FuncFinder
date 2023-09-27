@@ -8,6 +8,7 @@ import LinuxFuncFinder_x86
 import LinuxFuncFinder_Mips32
 import LinuxFuncFinder_Arm32
 import eabiFuncFinder_Arm32
+import LinuxFuncFinder_PPC32
 
 
 class myplugin_sysnr(idaapi.plugin_t):
@@ -30,10 +31,10 @@ class myplugin_sysnr(idaapi.plugin_t):
             print("Your IDA version needs to be greater than 7.4! :(@WPeace")
         return idaapi.PLUGIN_OK
     def run(self, arg):
-        print("SysNR-FuncFinder v1.5 start running...")
+        print("SysNR-FuncFinder v2.5 start running...")
         self.patcher()
     def term(self):
-        print("SysNR-FuncFinder v1.5 works fine! :)@WPeace\n")
+        print("SysNR-FuncFinder v2.5 works fine! :)@WPeace\n")
     def patcher(self):
         elf_magic = idc.get_wide_dword(idc.get_first_seg())
         e_type = idc.get_wide_word(idc.get_first_seg() + 0x10)
@@ -60,6 +61,9 @@ class myplugin_sysnr(idaapi.plugin_t):
                     # Advanced RISC Machines ARM
                     elif e_machine == 40:
                         LinuxFuncFinder_Arm32.main()
+                    # PowerPC32
+                    elif e_machine == 20:
+                        LinuxFuncFinder_PPC32.main()
                     else:
                         print("请确认插件版本是否支持当前文件架构。")
             else:
@@ -134,7 +138,7 @@ Written BY WPeace.
 
 class WPe_Patcher(Menu_Context):
         def activate(self, ctx):
-            print("\nSysNR-FuncFinder v1.5 start running...")
+            print("\nSysNR-FuncFinder v2.5 start running...")
             self.plugin.patcher()
             return 1
 

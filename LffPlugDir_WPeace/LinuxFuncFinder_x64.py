@@ -360,25 +360,43 @@ def ReName():
                 CallNumber = int(opString, 16)
                 address = idc.get_name_ea_simple(idc.get_func_name(line))
                 flag = 0
-                for func in idautils.Functions():
-                    name = idc.get_func_name(func)
-                    if name == linux_func[CallNumber]:
-                        flag = 1
-                if flag == 0:
-                    print(linux_func[CallNumber])
-                    idc.set_name(address, linux_func[CallNumber], idc.SN_CHECK)
-                    sum += 1
+                if CallNumber < 333:
+                    for func in idautils.Functions():
+                        name = idc.get_func_name(func)
+                        if name == linux_func[CallNumber]:
+                            flag = 1
+                    if flag == 0:
+                        print(linux_func[CallNumber])
+                        idc.set_name(address, linux_func[CallNumber], idc.SN_CHECK)
+                        sum += 1
         continue
     print("LinuxFuncFinder_x64 finished！总共重命名%d个函数" %sum)
 
 def GetMainFunc(func):
     end = idc.prev_head(func.end_ea)
     initMainAddr = idc.get_name_ea_simple(idc.print_operand(end, 0))
-    mainOP = idc.print_operand(idc.prev_head(idc.prev_head(idc.prev_head(end))), 1)
-    mainAddr = int(mainOP.split("sub_")[1], 16)
-    print("main address = 0x%x" %mainAddr)
-    idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
-    idc.set_name(mainAddr, "main", SN_FORCE)
+    mainOP = ""
+    primaryMainOP = idc.print_operand(idc.prev_head(idc.prev_head(idc.prev_head(end))), 1)
+    secondaryMainOP = idc.print_operand(idc.prev_head(end), 1)
+    if "sub" in primaryMainOP or "loc" in primaryMainOP or "unk" in primaryMainOP:
+        mainOP = primaryMainOP
+    else:
+        mainOP = secondaryMainOP
+    if "sub" in mainOP:
+        mainAddr = int(mainOP.split("sub_")[1], 16)
+        print("main address = 0x%x" %mainAddr)
+        idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
+        idc.set_name(mainAddr, "main", SN_FORCE)
+    elif "loc" in mainOP:
+        mainAddr = int(mainOP.split("loc_")[1], 16)
+        print("main address = 0x%x" %mainAddr)
+        idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
+        idc.set_name(mainAddr, "main", SN_FORCE)
+    elif "unk" in mainOP:
+        mainAddr = int(mainOP.split("unk_")[1], 16)
+        print("main address = 0x%x" %mainAddr)
+        idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
+        idc.set_name(mainAddr, "main", SN_FORCE)
 
 def RenameStartFunc():
     startAddr = idc.get_name_ea_simple("start")

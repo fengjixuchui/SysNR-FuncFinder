@@ -2,7 +2,7 @@
 
 import idc
 import idautils
-import  re
+import re
 import idaapi
 
 SN_FORCE = 0x800
@@ -459,10 +459,21 @@ def GetMainFunc(func):
     end = idc.prev_head(func.end_ea)
     initMainAddr = idc.get_name_ea_simple(idc.print_operand(end, 0))
     mainOP = idc.print_operand(idc.prev_head(end), 0)
-    mainAddr = int(mainOP.split("sub_")[1], 16)
-    print("main address = 0x%x" %mainAddr)
-    idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
-    idc.set_name(mainAddr, "main", SN_FORCE)
+    if "sub" in mainOP:
+        mainAddr = int(mainOP.split("sub_")[1], 16)
+        print("main address = 0x%x" %mainAddr)
+        idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
+        idc.set_name(mainAddr, "main", SN_FORCE)
+    elif "loc" in mainOP:
+        mainAddr = int(mainOP.split("loc_")[1], 16)
+        print("main address = 0x%x" %mainAddr)
+        idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
+        idc.set_name(mainAddr, "main", SN_FORCE)
+    elif "unk" in mainOP:
+        mainAddr = int(mainOP.split("unk_")[1], 16)
+        print("main address = 0x%x" %mainAddr)
+        idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
+        idc.set_name(mainAddr, "main", SN_FORCE)
 
 def RenameStartFunc():
     startAddr = idc.get_name_ea_simple("start")

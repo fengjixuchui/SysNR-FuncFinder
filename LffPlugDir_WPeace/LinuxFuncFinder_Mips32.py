@@ -425,7 +425,23 @@ mips_func.update({__NR_Linux+438: "_WPe_pidfd_getfd"})
 mips_func.update({__NR_Linux+439: "_WPe_faccessat2"})
 mips_func.update({__NR_Linux+440: "_WPe_process_madvise"})
 
-def ReName():
+def TestSyscall():
+    for func in idautils.Functions():
+        dism_addr = list(idautils.FuncItems(func))
+        for line in dism_addr:
+            m = idc.print_insn_mnem(line)
+            if m == 'syscall':
+                opString = idc.print_operand(line - 4, 1)
+                if len(opString) == 0:
+                    print("Error：请确认调用规则是否正确！")
+                    return 0
+                try:
+                    callNumber = int(opString, 16)
+                    return 1
+                except Exception:
+                    return 2
+
+def ReName_DirectCall():
     sum = 0
     for func in idautils.Functions():
         dism_addr = list(idautils.FuncItems(func))
@@ -438,32 +454,114 @@ def ReName():
                 if len(opString) == 0:
                     print("Error：请确认调用规则是否正确！")
                     return
-                CallNumber = int(opString, 16)
-                address = idc.get_name_ea_simple(idc.get_func_name(line))
-                flag = 0
-                for func in idautils.Functions():
-                    name = idc.get_func_name(func)
-                    if name == mips_func[CallNumber]:
-                        flag = 1
-                if flag == 0:
-                    print(mips_func[CallNumber])
-                    idc.set_name(address, mips_func[CallNumber], idc.SN_CHECK)
-                    sum += 1
+                try:
+                    callNumber = int(opString, 16)
+                    address = idc.get_name_ea_simple(idc.get_func_name(line))
+                    flag = 0
+                    for func in idautils.Functions():
+                        name = idc.get_func_name(func)
+                        if name == mips_func[callNumber]:
+                            flag = 1
+                    if flag == 0:
+                        print(mips_func[callNumber])
+                        idc.set_name(address, mips_func[callNumber], idc.SN_CHECK)
+                        sum += 1
+                except Exception as e:
+                    pass
         continue
-    print("LinuxFuncFinder_Mips32 finished！总共重命名%d个函数" % sum)
+    print("LinuxFuncFinder_Mips32_DirectCall finished！总共重命名%d个函数" % sum)
+
+def ReName_IndirectCall():
+    sum = 0
+    for func in idautils.Functions():
+        dism_addr = list(idautils.FuncItems(func))
+        for line in dism_addr:
+            m = idc.print_insn_mnem(line)
+            if m == 'syscall':
+                lastline = idc.prev_head(line)
+                op = idc.print_operand(lastline, 0)
+                funcStartAddr = idc.get_func_attr(line, idc.FUNCATTR_START)
+                if "v0" in op:
+                    Mnem_lastline = idc.print_insn_mnem(lastline)
+                    if Mnem_lastline == "li":
+                        opString = idc.print_operand(lastline, 1)
+                        callNumber = int(opString, 16)
+                        funcAddr = funcStartAddr
+                        idc.set_name(funcAddr, mips_func[callNumber], SN_FORCE)
+                        print(mips_func[callNumber])
+                        sum += 1
+                    elif Mnem_lastline == "move":
+                        xrefs = list(idautils.XrefsTo(funcStartAddr))
+                        for xrefAddr in xrefs:
+                            uptoFindNrLine = idc.prev_head(xrefAddr.frm)
+                            op_uptoFindNrLine = idc.print_operand(uptoFindNrLine, 0)
+                            while "a0" not in op_uptoFindNrLine:
+                                uptoFindNrLine = idc.prev_head(uptoFindNrLine)
+                                op_uptoFindNrLine = idc.print_operand(uptoFindNrLine, 0)
+                            opString = idc.print_operand(uptoFindNrLine, 1)
+                            callNumber = int(opString, 16)
+                            funcAddr = idc.get_func_attr(uptoFindNrLine, idc.FUNCATTR_START)
+                            idc.set_name(funcAddr, mips_func[callNumber], SN_FORCE)
+                            print(mips_func[callNumber])
+                            sum += 1
+                            break
+                    elif Mnem_lastline == "lw":
+                        xrefs = list(idautils.XrefsTo(funcStartAddr))
+                        for xrefAddr in xrefs:
+                            uptoFindNrLine = idc.prev_head(xrefAddr.frm)
+                            op_uptoFindNrLine = idc.print_operand(uptoFindNrLine, 0)
+                            while "a0" not in op_uptoFindNrLine:
+                                uptoFindNrLine = idc.prev_head(uptoFindNrLine)
+                                op_uptoFindNrLine = idc.print_operand(uptoFindNrLine, 0)
+                                Mnem = idc.print_insn_mnem(uptoFindNrLine)
+                            if Mnem == "lw" and "a0" in op_uptoFindNrLine:
+                                funcStartAddrTemp = idc.get_func_attr(uptoFindNrLine, idc.FUNCATTR_START)
+                                xrefsTemp = list(idautils.XrefsTo(funcStartAddrTemp))
+                                for xrefAddrTemp in xrefsTemp:
+                                    MnemSegment = idc.print_insn_mnem(xrefAddrTemp.frm)
+                                    if MnemSegment == "jalr":
+                                        xrefs.append(xrefAddrTemp)
+                            if Mnem == "li" and "a0" in op_uptoFindNrLine:
+                                opString = idc.print_operand(uptoFindNrLine, 1)
+                                callNumber = int(opString, 16)
+                                funcAddr = idc.get_func_attr(uptoFindNrLine, idc.FUNCATTR_START)
+                                idc.set_name(funcAddr, mips_func[callNumber], SN_FORCE)
+                                print(mips_func[callNumber])
+                                sum += 1
+        continue
+    print("LinuxFuncFinder_Mips32_IndirectCall finished！总共重命名%d个函数" % sum)
 
 def GetMainFunc(func):
     start = func.start_ea
     tmpMainAddr = idc.next_head(idc.next_head(idc.next_head(idc.next_head(idc.next_head(idc.next_head(start))))))
     mainOP = idc.print_operand(tmpMainAddr, 1)
-    mainAddr = int(mainOP.split("sub_")[1], 16)
-    end = idc.prev_head(func.end_ea)
-    tmpInitMainAddr = idc.prev_head(idc.prev_head(idc.prev_head(idc.prev_head(idc.prev_head(end)))))
-    initMainOP = idc.print_operand(tmpInitMainAddr, 1)
-    initMainAddr = int(initMainOP.split("sub_")[1], 16)
-    print("main address = 0x%x" %mainAddr)
-    idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
-    idc.set_name(mainAddr, "main", SN_FORCE)
+    if "sub" in mainOP:
+        mainAddr = int(mainOP.split("sub_")[1], 16)
+        end = idc.prev_head(func.end_ea)
+        tmpInitMainAddr = idc.prev_head(idc.prev_head(idc.prev_head(idc.prev_head(idc.prev_head(end)))))
+        initMainOP = idc.print_operand(tmpInitMainAddr, 1)
+        initMainAddr = idc.get_name_ea_simple(initMainOP)
+        print("main address = 0x%x" %mainAddr)
+        idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
+        idc.set_name(mainAddr, "main", SN_FORCE)
+    elif "loc" in mainOP:
+        mainAddr = int(mainOP.split("loc_")[1], 16)
+        end = idc.prev_head(func.end_ea)
+        tmpInitMainAddr = idc.prev_head(idc.prev_head(idc.prev_head(idc.prev_head(idc.prev_head(end)))))
+        initMainOP = idc.print_operand(tmpInitMainAddr, 1)
+        initMainAddr = idc.get_name_ea_simple(initMainOP)
+        print("main address = 0x%x" %mainAddr)
+        idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
+        idc.set_name(mainAddr, "main", SN_FORCE)
+    elif "unk" in mainOP:
+        mainAddr = int(mainOP.split("unk_")[1], 16)
+        end = idc.prev_head(func.end_ea)
+        tmpInitMainAddr = idc.prev_head(idc.prev_head(idc.prev_head(idc.prev_head(idc.prev_head(end)))))
+        initMainOP = idc.print_operand(tmpInitMainAddr, 1)
+        initMainAddr = idc.get_name_ea_simple(initMainOP)
+        print("main address = 0x%x" %mainAddr)
+        idc.set_name(initMainAddr, "Init_Main", SN_FORCE)
+        idc.set_name(mainAddr, "main", SN_FORCE)
 
 def RenameStartFunc():
     startAddr = idc.get_name_ea_simple("start")
@@ -477,7 +575,11 @@ def RenameStartFunc():
             GetMainFunc(func)
 
 def main():
-    ReName()
+    TS = TestSyscall()
+    if TS == 1:
+        ReName_DirectCall()
+    elif TS == 2:
+        ReName_IndirectCall()
     RenameStartFunc()
 
 if __name__ == "__main__":
